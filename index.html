@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>2026학년도 교직원 자율·직무 연수비 신청</title>
+<title>교직원 자율·직무 연수비 신청</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -55,7 +55,7 @@
   table{border-collapse:collapse;width:100%;min-width:1100px;font-size:14px}
   caption{caption-side:top;text-align:center;font-weight:700;font-size:16px;padding:14px}
   th,td{border:1px solid var(--line);padding:8px 10px;text-align:center;vertical-align:middle}
-  th{background:#eef2f8;font-weight:500}
+  th{background:#eef2f8;font-weight:500;white-space:nowrap}
   td.l{text-align:left}
   td.n{text-align:right;font-variant-numeric:tabular-nums}
   tr.ex td{color:var(--muted);background:#fafbfc}
@@ -65,6 +65,12 @@
   .del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px}
   .del:hover{color:var(--err)}
   .demo{background:#fff6dd;color:#7a5a00;border:1px solid #f0dca0;padding:8px 12px;border-radius:8px;font-size:13px;margin-bottom:14px}
+  .yearbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 18px;margin-bottom:14px}
+  .yearbar label{margin:0}
+  .yearbar select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:var(--ink);min-width:130px}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--ok-soft);color:var(--ok);font-size:13.5px}
+  .badge.off{background:#fff6dd;color:#7a5a00}
+  .yearbar .note{font-size:12.5px;color:var(--muted);flex-basis:100%}
   .hidden{display:none}
   @media (max-width:640px){
     .grid{grid-template-columns:1fr}
@@ -82,7 +88,7 @@
   <header>
     <div>
       <h1>교직원 자율·직무 연수비 신청</h1>
-      <div class="sub">2026학년도 · 입력하신 내용은 담당자만 확인합니다.</div>
+      <div class="sub"><b class="yr-cur">…</b>학년도 · 입력하신 내용은 담당자만 확인합니다.</div>
     </div>
     <button class="tab-btn" onclick="showView('login')">🔒 관리자</button>
   </header>
@@ -161,12 +167,19 @@
 <div id="adminView" class="wrap wide hidden">
   <header>
     <div>
-      <h1>자율·직무 연수비 신청 현황</h1>
+      <h1><span class="yr-view"></span>학년도 자율·직무 연수비 신청 현황</h1>
       <div class="sub">관리자 화면</div>
     </div>
     <button class="tab-btn" onclick="logout()">로그아웃</button>
   </header>
   <div id="demoNote2" class="demo hidden">미리보기 모드의 예시 데이터입니다.</div>
+  <div class="card yearbar">
+    <label for="yearSel">조회 학년도</label>
+    <select id="yearSel" onchange="loadAdmin(this.value)"></select>
+    <span class="badge" id="yearBadge">신청 접수 중: <b class="yr-cur"></b>학년도</span>
+    <button class="btn sm" id="setYearBtn" onclick="setYear()">이 학년도로 신청 받기</button>
+    <div class="note">신청 화면에는 '신청 접수 중' 학년도가 표시되고, 새 신청은 그 학년도 시트·폴더에 저장됩니다. 학년도 변경은 관리자만 할 수 있습니다.</div>
+  </div>
   <div class="toolbar">
     <div class="stat">신청 <b id="cnt">0</b>건 · 총 금액 <b id="sum">0</b>원</div>
     <div class="sp"></div>
@@ -177,7 +190,7 @@
   </div>
   <div class="tbl-wrap">
     <table>
-      <caption>2026학년도 교직원 자율.직무 연수비 신청 현황</caption>
+      <caption><span class="yr-view"></span>학년도 교직원 자율.직무 연수비 신청 현황</caption>
       <thead><tr>
         <th style="width:52px">연번</th><th style="width:80px">이름</th><th style="min-width:150px">연수기관</th><th style="min-width:220px">수강과정</th>
         <th style="width:190px">연수기간</th><th style="width:100px">이수일자</th><th style="width:90px">연수비</th>
@@ -196,6 +209,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbwiHdL5_hL3YmyrmWGHFnD0
 /* ── 서버 호출: ① Apps Script 안 ② GitHub Pages(API_URL) ③ 미리보기 ── */
 const GAS  = typeof google !== 'undefined' && google.script && google.script.run;
 const LIVE = GAS || !!API_URL;
+let demoYear = 2026;
 const demoRows = [
   {row:2,submitted:'2026-10-29 09:12',name:'홍길동',agency:'티처빌원격교육연수원',course:'AI와 함께하는 스마트 여행 플래너',period:'2026.04.22.-2026.05.30.',complete:'2026.05.30.',fee:57000,certUrl:'#',receiptUrl:'#'}
 ];
@@ -207,12 +221,27 @@ function call(fn, ...args){
       body: JSON.stringify({action: fn, args})
     }).then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error); return j.result; });
   return new Promise((res, rej) => setTimeout(() => {
-    if (fn === 'getAdminData') return args[0] === '9498' ? res({rows:demoRows, sheetUrl:'#', folderUrl:'#'}) : rej(new Error('암호가 올바르지 않습니다.'));
+    if (fn === 'getPublicConfig') return res({year:demoYear});
+    if (fn === 'setCurrentYear') { demoYear = +args[1]; return res(demoYear); }
+    if (fn === 'getAdminData') { if (args[0] !== '9498') return rej(new Error('암호가 올바르지 않습니다.')); const y=+(args[1]||demoYear); return res({year:y, currentYear:demoYear, years:[2026], rows:y===2026?demoRows:[], sheetUrl:'#', folderUrl:'#'}); }
     if (fn === 'submitApplication') { const f=args[0]; demoRows.push({row:demoRows.length+2,submitted:'방금',name:f.name,agency:f.agency,course:f.course,period:dot(f.startDate)+'-'+dot(f.endDate),complete:dot(f.completeDate),fee:+f.fee.replace(/\D/g,''),certUrl:'#',receiptUrl:'#'}); return res({certName:'이수증('+f.name+').pdf',receiptName:'영수증('+f.name+').pdf'}); }
-    if (fn === 'deleteApplication') { const i=demoRows.findIndex(r=>r.row===args[1]); demoRows.splice(i,1); demoRows.forEach((r,k)=>r.row=k+2); return res(true); }
+    if (fn === 'deleteApplication') { const i=demoRows.findIndex(r=>r.row===args[2]); demoRows.splice(i,1); demoRows.forEach((r,k)=>r.row=k+2); return res(true); }
   }, 500));
 }
 if (!LIVE) { document.getElementById('demoNote1').classList.remove('hidden'); document.getElementById('demoNote2').classList.remove('hidden'); }
+
+/* ── 학년도 표시 ── */
+let currentYear = null;
+function paintYears(){
+  document.querySelectorAll('.yr-cur').forEach(el => el.textContent = currentYear ?? '…');
+  document.querySelectorAll('.yr-view').forEach(el => el.textContent = adminData.year ?? currentYear ?? '');
+  if (currentYear) document.title = currentYear + '학년도 교직원 자율·직무 연수비 신청';
+}
+async function loadConfig(){
+  try { const c = await call('getPublicConfig'); currentYear = c.year; }
+  catch (e) { msg('applyMsg', '학년도 정보를 불러오지 못했습니다: ' + (e.message||e), 'err'); }
+  paintYears();
+}
 
 /* ── 화면 전환 ── */
 let adminPw = '';
@@ -287,18 +316,35 @@ document.getElementById('applyForm').addEventListener('submit', async e => {
 
 /* ── 관리자 ── */
 let adminData = {rows:[]};
+loadConfig();
 document.getElementById('loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const pw = document.getElementById('pw').value, btn = document.getElementById('loginBtn');
   btn.disabled = true; msg('loginMsg','');
-  try { adminData = await call('getAdminData', pw); adminPw = pw; renderAdmin(); showView('admin'); }
+  try { adminData = await call('getAdminData', pw, ''); adminPw = pw; renderAdmin(); showView('admin'); }
   catch (err) { msg('loginMsg', err.message||String(err), 'err'); }
   finally { btn.disabled = false; }
 });
-async function loadAdmin(){
-  try { adminData = await call('getAdminData', adminPw); renderAdmin(); } catch (err) { alert(err.message||err); }
+async function loadAdmin(year){
+  try { adminData = await call('getAdminData', adminPw, year ?? adminData.year ?? ''); renderAdmin(); } catch (err) { alert(err.message||err); }
+}
+async function setYear(){
+  const y = +document.getElementById('yearSel').value;
+  if (!confirm(y + '학년도로 신청을 받을까요?\n선생님 신청 화면의 학년도가 바뀌고, 이후 신청은 ' + y + '학년도 시트·폴더에 저장됩니다.')) return;
+  try { await call('setCurrentYear', adminPw, y); await loadAdmin(y); } catch (err) { alert(err.message||err); }
+}
+function renderYearBar(){
+  currentYear = adminData.currentYear;
+  const set = new Set([...(adminData.years||[]), currentYear - 1, currentYear, currentYear + 1, adminData.year]);
+  const sel = document.getElementById('yearSel');
+  sel.innerHTML = [...set].filter(Boolean).sort((a,b)=>b-a)
+    .map(y => `<option value="${y}" ${y===adminData.year?'selected':''}>${y}학년도${y===currentYear?' (접수 중)':''}</option>`).join('');
+  const isCur = adminData.year === currentYear;
+  document.getElementById('setYearBtn').classList.toggle('hidden', isCur);
+  paintYears();
 }
 function renderAdmin(){
+  renderYearBar();
   const rows = adminData.rows, total = rows.reduce((s,r)=>s+(+r.fee||0),0);
   document.getElementById('cnt').textContent = rows.length;
   document.getElementById('sum').textContent = document.getElementById('sum2').textContent = won(total);
@@ -316,13 +362,13 @@ function renderAdmin(){
 }
 async function delRow(row, name){
   if (!confirm(name+' 선생님의 신청을 삭제할까요?\n첨부된 이수증·영수증도 드라이브 휴지통으로 이동합니다.')) return;
-  try { await call('deleteApplication', adminPw, row, name); await loadAdmin(); } catch (err) { alert(err.message||err); }
+  try { await call('deleteApplication', adminPw, adminData.year, row, name); await loadAdmin(); } catch (err) { alert(err.message||err); }
 }
 
 /* ── 엑셀 다운로드 (첨부 양식과 같은 구성) ── */
 function downloadXlsx(){
   const rows = adminData.rows;
-  const aoa = [[], ['2026학년도 교직원 자율.직무 연수비 신청 현황'], ['연번','이름','연수기관','수강과정','연수기간','이수일자','연수비','이수증','영수증']];
+  const aoa = [[], [adminData.year + '학년도 교직원 자율.직무 연수비 신청 현황'], ['연번','이름','연수기관','수강과정','연수기간','이수일자','연수비','이수증','영수증']];
   rows.forEach((r,i) => aoa.push([i+1, r.name, r.agency, r.course, r.period, r.complete, +r.fee||0, r.certUrl||'', r.receiptUrl||'']));
   const totalRow = aoa.length + 1;
   aoa.push(['','','','','','총 금액', null]);
@@ -333,7 +379,7 @@ function downloadXlsx(){
   ws['!cols'] = [{wch:6},{wch:10},{wch:24},{wch:40},{wch:24},{wch:13},{wch:11},{wch:30},{wch:30}];
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '시트1');
   const d = new Date(), ymd = d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
-  XLSX.writeFile(wb, `2026_자율직무연수비_신청현황_${ymd}.xlsx`);
+  XLSX.writeFile(wb, `${adminData.year}_자율직무연수비_신청현황_${ymd}.xlsx`);
 }
 </script>
 </body>
