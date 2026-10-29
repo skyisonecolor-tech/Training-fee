@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2026학년도 교직원 자율·직무 연수비 신청</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#fff; --ink:#1d2430; --muted:#667085; --line:#d9dee7;
+    --accent:#2457c5; --accent-soft:#e8eefb; --ok:#127a4b; --ok-soft:#e5f5ed; --err:#c0322b; --err-soft:#fdecea;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Noto Sans KR',system-ui,sans-serif;font-size:15px;line-height:1.5}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 16px 60px}
+  .wrap.wide{max-width:1180px}
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+  h1{font-size:22px;margin:0}
+  .sub{color:var(--muted);font-size:14px;margin-top:4px}
+  .tab-btn{border:1px solid var(--line);background:var(--card);color:var(--muted);padding:7px 14px;border-radius:8px;cursor:pointer;font:inherit;font-size:14px}
+  .tab-btn:hover{color:var(--ink)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 16px}
+  .full{grid-column:1/-1}
+  label{display:block;font-weight:500;font-size:14px;margin-bottom:6px}
+  label .req{color:var(--err);margin-left:2px}
+  input[type=text],input[type=date],input[type=password]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:var(--ink)}
+  input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+  .range{display:flex;align-items:center;gap:8px}
+  .range span{color:var(--muted)}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:5px}
+  .drop{border:1.5px dashed var(--line);border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fafbfd;transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  .drop.has{border-style:solid;border-color:var(--ok);background:var(--ok-soft)}
+  .drop .t{font-weight:500}
+  .drop .f{font-size:13px;color:var(--muted);margin-top:3px;word-break:break-all}
+  .drop.has .f{color:var(--ok)}
+  input[type=file]{display:none}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;background:var(--accent);color:#fff;font:inherit;font-weight:500;padding:12px 18px;border-radius:8px;cursor:pointer}
+  .btn:disabled{opacity:.55;cursor:wait}
+  .btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+  .btn.sm{padding:7px 12px;font-size:13.5px}
+  .actions{margin-top:22px;display:flex;justify-content:flex-end}
+  .msg{margin-top:16px;padding:12px 14px;border-radius:8px;font-size:14px;display:none}
+  .msg.ok{display:block;background:var(--ok-soft);color:var(--ok)}
+  .msg.err{display:block;background:var(--err-soft);color:var(--err)}
+  .login{max-width:360px;margin:40px auto}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+  .toolbar .sp{flex:1}
+  .stat{font-size:14px;color:var(--muted)}
+  .stat b{color:var(--ink)}
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#fff}
+  table{border-collapse:collapse;width:100%;min-width:1100px;font-size:14px}
+  caption{caption-side:top;text-align:center;font-weight:700;font-size:16px;padding:14px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:center;vertical-align:middle}
+  th{background:#eef2f8;font-weight:500}
+  td.l{text-align:left}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  tr.ex td{color:var(--muted);background:#fafbfc}
+  tfoot td{font-weight:700;background:#f7f9fc}
+  a.pdf{color:var(--accent);text-decoration:none;font-size:13px;white-space:nowrap}
+  a.pdf:hover{text-decoration:underline}
+  .del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px}
+  .del:hover{color:var(--err)}
+  .demo{background:#fff6dd;color:#7a5a00;border:1px solid #f0dca0;padding:8px 12px;border-radius:8px;font-size:13px;margin-bottom:14px}
+  .hidden{display:none}
+  @media (max-width:640px){
+    .grid{grid-template-columns:1fr}
+    .card{padding:18px}
+    .range{flex-direction:column;align-items:stretch}
+    .range span{display:none}
+    .actions .btn{width:100%}
+  }
+</style>
+</head>
+<body>
+
+<!-- ───────── 교사 신청 화면 ───────── -->
+<div id="applyView" class="wrap">
+  <header>
+    <div>
+      <h1>교직원 자율·직무 연수비 신청</h1>
+      <div class="sub">2026학년도 · 입력하신 내용은 담당자만 확인합니다.</div>
+    </div>
+    <button class="tab-btn" onclick="showView('login')">🔒 관리자</button>
+  </header>
+  <div id="demoNote1" class="demo hidden">미리보기 모드입니다. 구글 Apps Script에 배포해야 실제로 저장됩니다.</div>
+
+  <form id="applyForm" class="card" novalidate>
+    <div class="grid">
+      <div>
+        <label for="name">이름<span class="req">*</span></label>
+        <input type="text" id="name" placeholder="홍길동" autocomplete="name" required>
+      </div>
+      <div>
+        <label for="agency">연수기관<span class="req">*</span></label>
+        <input type="text" id="agency" placeholder="티처빌원격교육연수원" required>
+      </div>
+      <div class="full">
+        <label for="course">수강과정명<span class="req">*</span></label>
+        <input type="text" id="course" placeholder="AI와 함께하는 스마트 여행 플래너" required>
+      </div>
+      <div class="full">
+        <label>연수기간<span class="req">*</span></label>
+        <div class="range">
+          <input type="date" id="startDate" required aria-label="연수 시작일">
+          <span>~</span>
+          <input type="date" id="endDate" required aria-label="연수 종료일">
+        </div>
+        <div class="hint">날짜를 직접 입력하거나 달력 아이콘을 눌러 선택하세요.</div>
+      </div>
+      <div>
+        <label for="completeDate">이수일자<span class="req">*</span></label>
+        <input type="date" id="completeDate" required>
+      </div>
+      <div>
+        <label for="fee">연수금액(원)<span class="req">*</span></label>
+        <input type="text" id="fee" inputmode="numeric" placeholder="57,000" required>
+      </div>
+      <div>
+        <label>이수증 PDF<span class="req">*</span></label>
+        <div class="drop" data-for="cert">
+          <div class="t">📄 이수증 첨부</div>
+          <div class="f">클릭하거나 파일을 끌어다 놓으세요</div>
+        </div>
+        <input type="file" id="cert" accept="application/pdf,.pdf">
+      </div>
+      <div>
+        <label>영수증 PDF<span class="req">*</span></label>
+        <div class="drop" data-for="receipt">
+          <div class="t">🧾 영수증 첨부</div>
+          <div class="f">클릭하거나 파일을 끌어다 놓으세요</div>
+        </div>
+        <input type="file" id="receipt" accept="application/pdf,.pdf">
+      </div>
+    </div>
+    <div class="actions"><button type="submit" class="btn" id="submitBtn">신청서 제출</button></div>
+    <div id="applyMsg" class="msg"></div>
+  </form>
+</div>
+
+<!-- ───────── 관리자 로그인 ───────── -->
+<div id="loginView" class="wrap hidden">
+  <div class="card login">
+    <h1 style="font-size:19px">관리자 확인</h1>
+    <div class="sub" style="margin-bottom:16px">신청 현황을 보려면 암호를 입력하세요.</div>
+    <form id="loginForm">
+      <input type="password" id="pw" inputmode="numeric" placeholder="암호" autocomplete="off">
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button type="button" class="btn ghost" style="flex:1" onclick="showView('apply')">돌아가기</button>
+        <button type="submit" class="btn" style="flex:1" id="loginBtn">확인</button>
+      </div>
+    </form>
+    <div id="loginMsg" class="msg"></div>
+  </div>
+</div>
+
+<!-- ───────── 관리자 현황 ───────── -->
+<div id="adminView" class="wrap wide hidden">
+  <header>
+    <div>
+      <h1>자율·직무 연수비 신청 현황</h1>
+      <div class="sub">관리자 화면</div>
+    </div>
+    <button class="tab-btn" onclick="logout()">로그아웃</button>
+  </header>
+  <div id="demoNote2" class="demo hidden">미리보기 모드의 예시 데이터입니다.</div>
+  <div class="toolbar">
+    <div class="stat">신청 <b id="cnt">0</b>건 · 총 금액 <b id="sum">0</b>원</div>
+    <div class="sp"></div>
+    <button class="btn ghost sm" onclick="loadAdmin()">↻ 새로고침</button>
+    <a class="btn ghost sm" id="folderLink" target="_blank" style="text-decoration:none">📁 증빙 폴더</a>
+    <a class="btn ghost sm" id="sheetLink" target="_blank" style="text-decoration:none">📊 구글 시트</a>
+    <button class="btn sm" onclick="downloadXlsx()">⬇ 엑셀 다운로드</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <caption>2026학년도 교직원 자율.직무 연수비 신청 현황</caption>
+      <thead><tr>
+        <th style="width:52px">연번</th><th style="width:80px">이름</th><th style="min-width:150px">연수기관</th><th style="min-width:220px">수강과정</th>
+        <th style="width:190px">연수기간</th><th style="width:100px">이수일자</th><th style="width:90px">연수비</th>
+        <th style="width:70px">이수증</th><th style="width:70px">영수증</th><th style="width:130px">제출일시</th><th style="width:48px"></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+      <tfoot><tr><td colspan="6" style="text-align:right">총 금액</td><td class="n" id="sum2">0</td><td colspan="4"></td></tr></tfoot>
+    </table>
+  </div>
+</div>
+
+<script>
+/* ── 설정: Apps Script 웹앱 배포 주소(…/exec)를 붙여 넣으세요 ── */
+const API_URL = 'https://script.google.com/macros/s/AKfycbwiHdL5_hL3YmyrmWGHFnD0ZR2hxC30-VMkL5vuarSILoINICg6xWOzPl6Xn4wkj46H/exec''';   // 예: 'https://script.google.com/macros/s/AKfy.../exec'
+
+/* ── 서버 호출: ① Apps Script 안 ② GitHub Pages(API_URL) ③ 미리보기 ── */
+const GAS  = typeof google !== 'undefined' && google.script && google.script.run;
+const LIVE = GAS || !!API_URL;
+const demoRows = [
+  {row:2,submitted:'2026-10-29 09:12',name:'홍길동',agency:'티처빌원격교육연수원',course:'AI와 함께하는 스마트 여행 플래너',period:'2026.04.22.-2026.05.30.',complete:'2026.05.30.',fee:57000,certUrl:'#',receiptUrl:'#'}
+];
+function call(fn, ...args){
+  if (GAS) return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(e => rej(e))[fn](...args));
+  if (API_URL) return fetch(API_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain;charset=utf-8'},   // text/plain이어야 CORS 사전요청 없이 통과
+      body: JSON.stringify({action: fn, args})
+    }).then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error); return j.result; });
+  return new Promise((res, rej) => setTimeout(() => {
+    if (fn === 'getAdminData') return args[0] === '9498' ? res({rows:demoRows, sheetUrl:'#', folderUrl:'#'}) : rej(new Error('암호가 올바르지 않습니다.'));
+    if (fn === 'submitApplication') { const f=args[0]; demoRows.push({row:demoRows.length+2,submitted:'방금',name:f.name,agency:f.agency,course:f.course,period:dot(f.startDate)+'-'+dot(f.endDate),complete:dot(f.completeDate),fee:+f.fee.replace(/\D/g,''),certUrl:'#',receiptUrl:'#'}); return res({certName:'이수증('+f.name+').pdf',receiptName:'영수증('+f.name+').pdf'}); }
+    if (fn === 'deleteApplication') { const i=demoRows.findIndex(r=>r.row===args[1]); demoRows.splice(i,1); demoRows.forEach((r,k)=>r.row=k+2); return res(true); }
+  }, 500));
+}
+if (!LIVE) { document.getElementById('demoNote1').classList.remove('hidden'); document.getElementById('demoNote2').classList.remove('hidden'); }
+
+/* ── 화면 전환 ── */
+let adminPw = '';
+function showView(v){
+  ['apply','login','admin'].forEach(k => document.getElementById(k+'View').classList.toggle('hidden', k!==v));
+  if (v==='login') setTimeout(()=>document.getElementById('pw').focus(), 50);
+  window.scrollTo(0,0);
+}
+function logout(){ adminPw=''; document.getElementById('pw').value=''; showView('apply'); }
+function msg(id, text, type){ const m=document.getElementById(id); m.className='msg '+(type||''); m.textContent=text; }
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const won = n => Number(n||0).toLocaleString('ko-KR');
+const dot = iso => iso ? iso.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$1.$2.$3.') : '';
+
+/* ── 금액 콤마 ── */
+const feeEl = document.getElementById('fee');
+feeEl.addEventListener('input', () => { const d=feeEl.value.replace(/\D/g,''); feeEl.value = d ? Number(d).toLocaleString('ko-KR') : ''; });
+
+/* ── 날짜 연동: 종료일 ≥ 시작일, 이수일자 기본값 = 종료일 ── */
+const sd=document.getElementById('startDate'), ed=document.getElementById('endDate'), cd=document.getElementById('completeDate');
+sd.addEventListener('change', () => { ed.min = sd.value; if (ed.value && ed.value < sd.value) ed.value = sd.value; });
+ed.addEventListener('change', () => { if (!cd.value) cd.value = ed.value; });
+
+/* ── 파일 첨부 (클릭/드래그) ── */
+const files = {cert:null, receipt:null};
+document.querySelectorAll('.drop').forEach(box => {
+  const key = box.dataset.for, input = document.getElementById(key);
+  box.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => setFile(key, input.files[0]));
+  box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('over'); });
+  box.addEventListener('dragleave', () => box.classList.remove('over'));
+  box.addEventListener('drop', e => { e.preventDefault(); box.classList.remove('over'); setFile(key, e.dataTransfer.files[0]); });
+});
+function setFile(key, f){
+  const box = document.querySelector('.drop[data-for="'+key+'"]');
+  if (!f) return;
+  if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') { msg('applyMsg','PDF 파일만 첨부할 수 있습니다.','err'); return; }
+  if (f.size > 10*1024*1024) { msg('applyMsg','파일은 10MB 이하만 첨부할 수 있습니다.','err'); return; }
+  files[key] = f; box.classList.add('has');
+  box.querySelector('.f').textContent = '✓ ' + f.name + ' (' + (f.size/1024/1024).toFixed(2) + 'MB)';
+  msg('applyMsg','');
+}
+const readB64 = f => new Promise((res, rej) => { const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(f); });
+
+/* ── 제출 ── */
+document.getElementById('applyForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = id => document.getElementById(id).value.trim();
+  const need = [['name','이름'],['agency','연수기관'],['course','수강과정명'],['startDate','연수 시작일'],['endDate','연수 종료일'],['completeDate','이수일자'],['fee','연수금액']];
+  for (const [id,label] of need) if (!v(id)) { msg('applyMsg', label+'을(를) 입력해 주세요.','err'); document.getElementById(id).focus(); return; }
+  if (v('endDate') < v('startDate')) { msg('applyMsg','연수 종료일이 시작일보다 빠릅니다.','err'); return; }
+  if (!files.cert) { msg('applyMsg','이수증 PDF를 첨부해 주세요.','err'); return; }
+  if (!files.receipt) { msg('applyMsg','영수증 PDF를 첨부해 주세요.','err'); return; }
+
+  const btn = document.getElementById('submitBtn'); btn.disabled = true; btn.textContent = '제출 중…';
+  msg('applyMsg','파일을 업로드하고 있습니다. 잠시만 기다려 주세요.');
+  try {
+    const payload = {
+      name:v('name'), agency:v('agency'), course:v('course'),
+      startDate:v('startDate'), endDate:v('endDate'), completeDate:v('completeDate'), fee:v('fee'),
+      cert:{fileName:files.cert.name, mimeType:files.cert.type||'application/pdf', data:await readB64(files.cert)},
+      receipt:{fileName:files.receipt.name, mimeType:files.receipt.type||'application/pdf', data:await readB64(files.receipt)}
+    };
+    const r = await call('submitApplication', payload);
+    e.target.reset(); files.cert = files.receipt = null;
+    document.querySelectorAll('.drop').forEach(b => { b.classList.remove('has'); b.querySelector('.f').textContent='클릭하거나 파일을 끌어다 놓으세요'; });
+    msg('applyMsg','✅ 제출되었습니다. ('+r.certName+', '+r.receiptName+' 저장 완료)','ok');
+  } catch (err) {
+    msg('applyMsg','제출에 실패했습니다: '+(err.message||err),'err');
+  } finally { btn.disabled=false; btn.textContent='신청서 제출'; }
+});
+
+/* ── 관리자 ── */
+let adminData = {rows:[]};
+document.getElementById('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const pw = document.getElementById('pw').value, btn = document.getElementById('loginBtn');
+  btn.disabled = true; msg('loginMsg','');
+  try { adminData = await call('getAdminData', pw); adminPw = pw; renderAdmin(); showView('admin'); }
+  catch (err) { msg('loginMsg', err.message||String(err), 'err'); }
+  finally { btn.disabled = false; }
+});
+async function loadAdmin(){
+  try { adminData = await call('getAdminData', adminPw); renderAdmin(); } catch (err) { alert(err.message||err); }
+}
+function renderAdmin(){
+  const rows = adminData.rows, total = rows.reduce((s,r)=>s+(+r.fee||0),0);
+  document.getElementById('cnt').textContent = rows.length;
+  document.getElementById('sum').textContent = document.getElementById('sum2').textContent = won(total);
+  document.getElementById('sheetLink').href = adminData.sheetUrl || '#';
+  document.getElementById('folderLink').href = adminData.folderUrl || '#';
+  const tb = document.getElementById('tbody');
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="11" style="padding:30px;color:var(--muted)">아직 접수된 신청이 없습니다.</td></tr>'; return; }
+  tb.innerHTML = rows.map((r,i) => `<tr>
+    <td>${i+1}</td><td>${esc(r.name)}</td><td class="l">${esc(r.agency)}</td><td class="l">${esc(r.course)}</td>
+    <td>${esc(r.period)}</td><td>${esc(r.complete)}</td><td class="n">${won(r.fee)}</td>
+    <td>${r.certUrl?`<a class="pdf" href="${esc(r.certUrl)}" target="_blank">PDF 보기</a>`:'-'}</td>
+    <td>${r.receiptUrl?`<a class="pdf" href="${esc(r.receiptUrl)}" target="_blank">PDF 보기</a>`:'-'}</td>
+    <td style="font-size:12.5px;color:var(--muted)">${esc(r.submitted)}</td>
+    <td><button class="del" title="삭제" onclick="delRow(${r.row}, '${esc(r.name).replace(/'/g,"\\'")}')">✕</button></td></tr>`).join('');
+}
+async function delRow(row, name){
+  if (!confirm(name+' 선생님의 신청을 삭제할까요?\n첨부된 이수증·영수증도 드라이브 휴지통으로 이동합니다.')) return;
+  try { await call('deleteApplication', adminPw, row, name); await loadAdmin(); } catch (err) { alert(err.message||err); }
+}
+
+/* ── 엑셀 다운로드 (첨부 양식과 같은 구성) ── */
+function downloadXlsx(){
+  const rows = adminData.rows;
+  const aoa = [[], ['2026학년도 교직원 자율.직무 연수비 신청 현황'], ['연번','이름','연수기관','수강과정','연수기간','이수일자','연수비','이수증','영수증']];
+  rows.forEach((r,i) => aoa.push([i+1, r.name, r.agency, r.course, r.period, r.complete, +r.fee||0, r.certUrl||'', r.receiptUrl||'']));
+  const totalRow = aoa.length + 1;
+  aoa.push(['','','','','','총 금액', null]);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['G'+totalRow] = rows.length ? {t:'n', f:`SUM(G4:G${totalRow-1})`, v:rows.reduce((s,r)=>s+(+r.fee||0),0), z:'#,##0'} : {t:'n', v:0};
+  for (let r=4; r<totalRow; r++) { const c=ws['G'+r]; if (c) c.z='#,##0'; ['H','I'].forEach(col => { const x=ws[col+r]; if (x && x.v) x.l={Target:x.v}; }); }
+  ws['!merges'] = [{s:{r:1,c:0}, e:{r:1,c:6}}];
+  ws['!cols'] = [{wch:6},{wch:10},{wch:24},{wch:40},{wch:24},{wch:13},{wch:11},{wch:30},{wch:30}];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '시트1');
+  const d = new Date(), ymd = d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+  XLSX.writeFile(wb, `2026_자율직무연수비_신청현황_${ymd}.xlsx`);
+}
+</script>
+</body>
+</html>
