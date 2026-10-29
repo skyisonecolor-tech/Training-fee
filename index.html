@@ -225,7 +225,7 @@ function call(fn, ...args){
     if (fn === 'getPublicConfig') return res({year:demoYear});
     if (fn === 'setCurrentYear') { demoYear = +args[1]; return res(demoYear); }
     if (fn === 'getAdminData') { if (args[0] !== '9498') return rej(new Error('암호가 올바르지 않습니다.')); const y=+(args[1]||demoYear); return res({year:y, currentYear:demoYear, years:[2026], rows:y===2026?demoRows:[], sheetUrl:'#', folderUrl:'#'}); }
-    if (fn === 'submitApplication') { const f=args[0]; demoRows.push({row:demoRows.length+2,submitted:'방금',name:f.name,agency:f.agency,course:f.course,period:dot(f.startDate)+'-'+dot(f.endDate),complete:dot(f.completeDate),fee:+f.fee.replace(/\D/g,''),certUrl:'#',receiptUrl:'#'}); return res({certName:'이수증('+f.name+').'+extOf(f.cert.fileName),receiptName:'영수증('+f.name+').'+extOf(f.receipt.fileName)}); }
+    if (fn === 'submitApplication') { const f=args[0]; demoRows.push({row:demoRows.length+2,submitted:'방금',name:f.name,agency:f.agency,course:f.course,period:dot(f.startDate)+'-'+dot(f.endDate),complete:dot(f.completeDate),fee:+f.fee.replace(/\D/g,''),certUrl:'#',receiptUrl:'#'}); const b=f.name+'_'+f.course.slice(0,40); return res({certName:'이수증('+b+').'+extOf(f.cert.fileName),receiptName:'영수증('+b+').'+extOf(f.receipt.fileName)}); }
     if (fn === 'deleteApplication') { const i=demoRows.findIndex(r=>r.row===args[2]); demoRows.splice(i,1); demoRows.forEach((r,k)=>r.row=k+2); return res(true); }
   }, 500));
 }
