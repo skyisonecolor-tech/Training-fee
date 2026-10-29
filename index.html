@@ -62,6 +62,7 @@
   tfoot td{font-weight:700;background:#f7f9fc}
   a.pdf{color:var(--accent);text-decoration:none;font-size:13px;white-space:nowrap}
   a.pdf:hover{text-decoration:underline}
+  .ftype{font-weight:400;font-size:12px;color:var(--muted);margin-left:4px}
   .del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px}
   .del:hover{color:var(--err)}
   .demo{background:#fff6dd;color:#7a5a00;border:1px solid #f0dca0;padding:8px 12px;border-radius:8px;font-size:13px;margin-bottom:14px}
@@ -126,20 +127,20 @@
         <input type="text" id="fee" inputmode="numeric" placeholder="57,000" required>
       </div>
       <div>
-        <label>이수증 PDF<span class="req">*</span></label>
+        <label>이수증<span class="req">*</span> <span class="ftype">PDF·이미지</span></label>
         <div class="drop" data-for="cert">
           <div class="t">📄 이수증 첨부</div>
           <div class="f">클릭하거나 파일을 끌어다 놓으세요</div>
         </div>
-        <input type="file" id="cert" accept="application/pdf,.pdf">
+        <input type="file" id="cert" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp,.heic,.heif,application/pdf,image/*">
       </div>
       <div>
-        <label>영수증 PDF<span class="req">*</span></label>
+        <label>영수증<span class="req">*</span> <span class="ftype">PDF·이미지</span></label>
         <div class="drop" data-for="receipt">
           <div class="t">🧾 영수증 첨부</div>
           <div class="f">클릭하거나 파일을 끌어다 놓으세요</div>
         </div>
-        <input type="file" id="receipt" accept="application/pdf,.pdf">
+        <input type="file" id="receipt" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp,.heic,.heif,application/pdf,image/*">
       </div>
     </div>
     <div class="actions"><button type="submit" class="btn" id="submitBtn">신청서 제출</button></div>
@@ -224,7 +225,7 @@ function call(fn, ...args){
     if (fn === 'getPublicConfig') return res({year:demoYear});
     if (fn === 'setCurrentYear') { demoYear = +args[1]; return res(demoYear); }
     if (fn === 'getAdminData') { if (args[0] !== '9498') return rej(new Error('암호가 올바르지 않습니다.')); const y=+(args[1]||demoYear); return res({year:y, currentYear:demoYear, years:[2026], rows:y===2026?demoRows:[], sheetUrl:'#', folderUrl:'#'}); }
-    if (fn === 'submitApplication') { const f=args[0]; demoRows.push({row:demoRows.length+2,submitted:'방금',name:f.name,agency:f.agency,course:f.course,period:dot(f.startDate)+'-'+dot(f.endDate),complete:dot(f.completeDate),fee:+f.fee.replace(/\D/g,''),certUrl:'#',receiptUrl:'#'}); return res({certName:'이수증('+f.name+').pdf',receiptName:'영수증('+f.name+').pdf'}); }
+    if (fn === 'submitApplication') { const f=args[0]; demoRows.push({row:demoRows.length+2,submitted:'방금',name:f.name,agency:f.agency,course:f.course,period:dot(f.startDate)+'-'+dot(f.endDate),complete:dot(f.completeDate),fee:+f.fee.replace(/\D/g,''),certUrl:'#',receiptUrl:'#'}); return res({certName:'이수증('+f.name+').'+extOf(f.cert.fileName),receiptName:'영수증('+f.name+').'+extOf(f.receipt.fileName)}); }
     if (fn === 'deleteApplication') { const i=demoRows.findIndex(r=>r.row===args[2]); demoRows.splice(i,1); demoRows.forEach((r,k)=>r.row=k+2); return res(true); }
   }, 500));
 }
@@ -267,6 +268,8 @@ ed.addEventListener('change', () => { if (!cd.value) cd.value = ed.value; });
 
 /* ── 파일 첨부 (클릭/드래그) ── */
 const files = {cert:null, receipt:null};
+const ALLOWED_EXT = /\.(pdf|jpe?g|png|gif|webp|bmp|heic|heif)$/i;
+const extOf = n => (n.match(/\.([a-z0-9]+)$/i)||[,''])[1].toLowerCase();
 document.querySelectorAll('.drop').forEach(box => {
   const key = box.dataset.for, input = document.getElementById(key);
   box.addEventListener('click', () => input.click());
@@ -278,7 +281,7 @@ document.querySelectorAll('.drop').forEach(box => {
 function setFile(key, f){
   const box = document.querySelector('.drop[data-for="'+key+'"]');
   if (!f) return;
-  if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') { msg('applyMsg','PDF 파일만 첨부할 수 있습니다.','err'); return; }
+  if (!ALLOWED_EXT.test(f.name)) { msg('applyMsg','PDF 또는 이미지 파일(jpg, jpeg, png, gif, webp, bmp, heic)만 첨부할 수 있습니다.','err'); return; }
   if (f.size > 10*1024*1024) { msg('applyMsg','파일은 10MB 이하만 첨부할 수 있습니다.','err'); return; }
   files[key] = f; box.classList.add('has');
   box.querySelector('.f').textContent = '✓ ' + f.name + ' (' + (f.size/1024/1024).toFixed(2) + 'MB)';
@@ -293,8 +296,8 @@ document.getElementById('applyForm').addEventListener('submit', async e => {
   const need = [['name','이름'],['agency','연수기관'],['course','수강과정명'],['startDate','연수 시작일'],['endDate','연수 종료일'],['completeDate','이수일자'],['fee','연수금액']];
   for (const [id,label] of need) if (!v(id)) { msg('applyMsg', label+'을(를) 입력해 주세요.','err'); document.getElementById(id).focus(); return; }
   if (v('endDate') < v('startDate')) { msg('applyMsg','연수 종료일이 시작일보다 빠릅니다.','err'); return; }
-  if (!files.cert) { msg('applyMsg','이수증 PDF를 첨부해 주세요.','err'); return; }
-  if (!files.receipt) { msg('applyMsg','영수증 PDF를 첨부해 주세요.','err'); return; }
+  if (!files.cert) { msg('applyMsg','이수증 파일을 첨부해 주세요.','err'); return; }
+  if (!files.receipt) { msg('applyMsg','영수증 파일을 첨부해 주세요.','err'); return; }
 
   const btn = document.getElementById('submitBtn'); btn.disabled = true; btn.textContent = '제출 중…';
   msg('applyMsg','파일을 업로드하고 있습니다. 잠시만 기다려 주세요.');
@@ -302,8 +305,8 @@ document.getElementById('applyForm').addEventListener('submit', async e => {
     const payload = {
       name:v('name'), agency:v('agency'), course:v('course'),
       startDate:v('startDate'), endDate:v('endDate'), completeDate:v('completeDate'), fee:v('fee'),
-      cert:{fileName:files.cert.name, mimeType:files.cert.type||'application/pdf', data:await readB64(files.cert)},
-      receipt:{fileName:files.receipt.name, mimeType:files.receipt.type||'application/pdf', data:await readB64(files.receipt)}
+      cert:{fileName:files.cert.name, mimeType:files.cert.type||'', data:await readB64(files.cert)},
+      receipt:{fileName:files.receipt.name, mimeType:files.receipt.type||'', data:await readB64(files.receipt)}
     };
     const r = await call('submitApplication', payload);
     e.target.reset(); files.cert = files.receipt = null;
@@ -355,8 +358,8 @@ function renderAdmin(){
   tb.innerHTML = rows.map((r,i) => `<tr>
     <td>${i+1}</td><td>${esc(r.name)}</td><td class="l">${esc(r.agency)}</td><td class="l">${esc(r.course)}</td>
     <td>${esc(r.period)}</td><td>${esc(r.complete)}</td><td class="n">${won(r.fee)}</td>
-    <td>${r.certUrl?`<a class="pdf" href="${esc(r.certUrl)}" target="_blank">PDF 보기</a>`:'-'}</td>
-    <td>${r.receiptUrl?`<a class="pdf" href="${esc(r.receiptUrl)}" target="_blank">PDF 보기</a>`:'-'}</td>
+    <td>${r.certUrl?`<a class="pdf" href="${esc(r.certUrl)}" target="_blank">파일 보기</a>`:'-'}</td>
+    <td>${r.receiptUrl?`<a class="pdf" href="${esc(r.receiptUrl)}" target="_blank">파일 보기</a>`:'-'}</td>
     <td style="font-size:12.5px;color:var(--muted)">${esc(r.submitted)}</td>
     <td><button class="del" title="삭제" onclick="delRow(${r.row}, '${esc(r.name).replace(/'/g,"\\'")}')">✕</button></td></tr>`).join('');
 }
