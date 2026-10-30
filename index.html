@@ -72,6 +72,24 @@
   .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--ok-soft);color:var(--ok);font-size:13.5px}
   .badge.off{background:#fff6dd;color:#7a5a00}
   .yearbar .note{font-size:12.5px;color:var(--muted);flex-basis:100%}
+  .closed{text-align:center;padding:56px 24px}
+  .closed .ic{font-size:44px;line-height:1}
+  .closed h2{font-size:21px;margin:14px 0 6px}
+  .closed p{color:var(--muted);margin:4px 0}
+  .closed .period{display:inline-block;margin-top:14px;padding:10px 16px;border-radius:10px;background:var(--bg);font-size:14.5px}
+  .loading{text-align:center;color:var(--muted);padding:48px 24px}
+  .sched{padding:16px 18px;margin-bottom:14px}
+  .sched-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .sched-top h3{font-size:15px;margin:0}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex-wrap:wrap}
+  .seg label{margin:0;padding:8px 14px;cursor:pointer;font-weight:400;font-size:14px;border-right:1px solid var(--line);background:#fff}
+  .seg label:last-child{border-right:0}
+  .seg input{display:none}
+  .seg label:has(input:checked){background:var(--accent);color:#fff}
+  .sched-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .sched-row input[type=datetime-local]{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;width:auto}
+  .sched-row .lbl{font-size:13.5px;color:var(--muted)}
+  .badge.closed-b{background:var(--err-soft);color:var(--err)}
   .hidden{display:none}
   @media (max-width:640px){
     .grid{grid-template-columns:1fr}
@@ -95,7 +113,17 @@
   </header>
   <div id="demoNote1" class="demo hidden">미리보기 모드입니다. 구글 Apps Script에 배포해야 실제로 저장됩니다.</div>
 
-  <form id="applyForm" class="card" novalidate>
+  <div id="loadingCard" class="card loading">신청 정보를 불러오는 중입니다…</div>
+
+  <div id="closedCard" class="card closed hidden">
+    <div class="ic">⏳</div>
+    <h2 id="closedTitle">신청 기한이 아닙니다</h2>
+    <p id="closedMsg">지금은 연수비 신청을 받지 않습니다.</p>
+    <div id="closedPeriod" class="period hidden"></div>
+    <p style="margin-top:16px;font-size:13px">문의 사항은 담당 선생님께 연락해 주세요.</p>
+  </div>
+
+  <form id="applyForm" class="card hidden" novalidate>
     <div class="grid">
       <div>
         <label for="name">이름<span class="req">*</span></label>
@@ -146,6 +174,7 @@
     <div class="actions"><button type="submit" class="btn" id="submitBtn">신청서 제출</button></div>
     <div id="applyMsg" class="msg"></div>
   </form>
+  <div id="configMsg" class="msg"></div>
 </div>
 
 <!-- ───────── 관리자 로그인 ───────── -->
@@ -181,6 +210,25 @@
     <button class="btn sm" id="setYearBtn" onclick="setYear()">이 학년도로 신청 받기</button>
     <div class="note">신청 화면에는 '신청 접수 중' 학년도가 표시되고, 새 신청은 그 학년도 시트·폴더에 저장됩니다. 학년도 변경은 관리자만 할 수 있습니다.</div>
   </div>
+  <div class="card sched">
+    <div class="sched-top">
+      <h3>신청 기간</h3>
+      <span class="badge" id="schedBadge"></span>
+    </div>
+    <div class="seg" role="radiogroup">
+      <label><input type="radio" name="smode" value="open"> ▶ 수동 개시</label>
+      <label><input type="radio" name="smode" value="closed"> ■ 수동 마감</label>
+      <label><input type="radio" name="smode" value="schedule"> ⏰ 예약(자동)</label>
+    </div>
+    <div class="sched-row hidden" id="schedTimes">
+      <span class="lbl">개시</span><input type="datetime-local" id="sStart">
+      <span class="lbl">~ 마감</span><input type="datetime-local" id="sEnd">
+    </div>
+    <div class="sched-row">
+      <button class="btn sm" onclick="saveSchedule()" id="schedSave">저장</button>
+      <span class="lbl" id="schedHint"></span>
+    </div>
+  </div>
   <div class="toolbar">
     <div class="stat">신청 <b id="cnt">0</b>건 · 총 금액 <b id="sum">0</b>원</div>
     <div class="sp"></div>
@@ -211,6 +259,12 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbwiHdL5_hL3YmyrmWGHFnD0
 const GAS  = typeof google !== 'undefined' && google.script && google.script.run;
 const LIVE = GAS || !!API_URL;
 let demoYear = 2026;
+let demoSched = {mode:'open', start:'', end:''};
+function demoStatus(){
+  const s=demoSched, now=Date.now(), st=s.start?new Date(s.start+':00+09:00').getTime():null, en=s.end?new Date(s.end+':00+09:00').getTime():null;
+  let state=s.mode; if (s.mode==='schedule') state=(st&&now<st)?'before':(en&&now>=en)?'after':'open';
+  return {...s, state, open:state==='open', msToStart:s.mode==='schedule'&&st&&now<st?st-now:null, msToEnd:s.mode==='schedule'&&en&&now<en?en-now:null};
+}
 const demoRows = [
   {row:2,submitted:'2026-10-29 09:12',name:'홍길동',agency:'티처빌원격교육연수원',course:'AI와 함께하는 스마트 여행 플래너',period:'2026.04.22.-2026.05.30.',complete:'2026.05.30.',fee:57000,certUrl:'#',receiptUrl:'#'}
 ];
@@ -222,10 +276,11 @@ function call(fn, ...args){
       body: JSON.stringify({action: fn, args})
     }).then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error); return j.result; });
   return new Promise((res, rej) => setTimeout(() => {
-    if (fn === 'getPublicConfig') return res({year:demoYear});
+    if (fn === 'getPublicConfig') return res({year:demoYear, ...demoStatus()});
+    if (fn === 'setSchedule') { if (args[1]==='schedule' && args[2] && args[3] && args[3]<=args[2]) return rej(new Error('마감 일시는 개시 일시보다 뒤여야 합니다.')); demoSched={mode:args[1],start:args[2]||'',end:args[3]||''}; return res(demoStatus()); }
     if (fn === 'setCurrentYear') { demoYear = +args[1]; return res(demoYear); }
-    if (fn === 'getAdminData') { if (args[0] !== '9498') return rej(new Error('암호가 올바르지 않습니다.')); const y=+(args[1]||demoYear); return res({year:y, currentYear:demoYear, years:[2026], rows:y===2026?demoRows:[], sheetUrl:'#', folderUrl:'#'}); }
-    if (fn === 'submitApplication') { const f=args[0]; demoRows.push({row:demoRows.length+2,submitted:'방금',name:f.name,agency:f.agency,course:f.course,period:dot(f.startDate)+'-'+dot(f.endDate),complete:dot(f.completeDate),fee:+f.fee.replace(/\D/g,''),certUrl:'#',receiptUrl:'#'}); const b=f.name+'_'+f.course.slice(0,40); return res({certName:'이수증('+b+').'+extOf(f.cert.fileName),receiptName:'영수증('+b+').'+extOf(f.receipt.fileName)}); }
+    if (fn === 'getAdminData') { if (args[0] !== '9498') return rej(new Error('암호가 올바르지 않습니다.')); const y=+(args[1]||demoYear); return res({year:y, currentYear:demoYear, schedule:demoStatus(), years:[2026], rows:y===2026?demoRows:[], sheetUrl:'#', folderUrl:'#'}); }
+    if (fn === 'submitApplication') { if (!demoStatus().open) return rej(new Error('신청 기한이 아닙니다.')); const f=args[0]; demoRows.push({row:demoRows.length+2,submitted:'방금',name:f.name,agency:f.agency,course:f.course,period:dot(f.startDate)+'-'+dot(f.endDate),complete:dot(f.completeDate),fee:+f.fee.replace(/\D/g,''),certUrl:'#',receiptUrl:'#'}); const b=f.name+'_'+f.course.slice(0,40); return res({certName:'이수증('+b+').'+extOf(f.cert.fileName),receiptName:'영수증('+b+').'+extOf(f.receipt.fileName)}); }
     if (fn === 'deleteApplication') { const i=demoRows.findIndex(r=>r.row===args[2]); demoRows.splice(i,1); demoRows.forEach((r,k)=>r.row=k+2); return res(true); }
   }, 500));
 }
@@ -238,10 +293,50 @@ function paintYears(){
   document.querySelectorAll('.yr-view').forEach(el => el.textContent = adminData.year ?? currentYear ?? '');
   if (currentYear) document.title = currentYear + '학년도 교직원 자율·직무 연수비 신청';
 }
+let boundaryTimer = null;
 async function loadConfig(){
-  try { const c = await call('getPublicConfig'); currentYear = c.year; }
-  catch (e) { msg('applyMsg', '학년도 정보를 불러오지 못했습니다: ' + (e.message||e), 'err'); }
+  try {
+    const c = await call('getPublicConfig');
+    currentYear = c.year;
+    renderApplyState(c);
+    // 예약 개시·마감 시각이 되면 자동으로 화면 갱신
+    clearTimeout(boundaryTimer);
+    const next = [c.msToStart, c.msToEnd].filter(v => v != null && v > 0).sort((a,b)=>a-b)[0];
+    if (next != null && next < 2147483000) boundaryTimer = setTimeout(loadConfig, next + 1500);
+  } catch (e) {
+    document.getElementById('loadingCard').classList.add('hidden');
+    msg('configMsg', '신청 정보를 불러오지 못했습니다. 잠시 후 새로고침해 주세요. (' + (e.message||e) + ')', 'err');
+  }
   paintYears();
+}
+const WD = ['일','월','화','수','목','금','토'];
+function fmtDT(s){
+  if (!s) return '';
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!m) return s;
+  const wd = WD[new Date(Date.UTC(+m[1], +m[2]-1, +m[3])).getUTCDay()];
+  return `${m[1]}.${m[2]}.${m[3]}.(${wd}) ${m[4]}:${m[5]}`;
+}
+function periodText(c){
+  if (c.mode !== 'schedule') return '';
+  return (c.start ? fmtDT(c.start) : '') + ' ~ ' + (c.end ? fmtDT(c.end) : '');
+}
+function renderApplyState(c){
+  document.getElementById('loadingCard').classList.add('hidden');
+  document.getElementById('applyForm').classList.toggle('hidden', !c.open);
+  document.getElementById('closedCard').classList.toggle('hidden', c.open);
+  if (c.open) return;
+  const t = {
+    before: ['📅', '아직 신청 기간이 아닙니다', '신청은 아래 기간에 받습니다.'],
+    after:  ['⏳', '신청 기한이 아닙니다', '신청이 마감되었습니다.'],
+    closed: ['⏳', '신청 기한이 아닙니다', '지금은 연수비 신청을 받지 않습니다.']
+  }[c.state] || ['⏳', '신청 기한이 아닙니다', ''];
+  document.querySelector('#closedCard .ic').textContent = t[0];
+  document.getElementById('closedTitle').textContent = t[1];
+  document.getElementById('closedMsg').textContent = t[2];
+  const p = periodText(c), pe = document.getElementById('closedPeriod');
+  pe.textContent = p ? '신청 기간  ' + p : '';
+  pe.classList.toggle('hidden', !p);
 }
 
 /* ── 화면 전환 ── */
@@ -314,6 +409,7 @@ document.getElementById('applyForm').addEventListener('submit', async e => {
     msg('applyMsg','✅ 제출되었습니다. ('+r.certName+', '+r.receiptName+' 저장 완료)','ok');
   } catch (err) {
     msg('applyMsg','제출에 실패했습니다: '+(err.message||err),'err');
+    if (String(err.message||err).includes('신청 기한')) loadConfig();
   } finally { btn.disabled=false; btn.textContent='신청서 제출'; }
 });
 
@@ -331,6 +427,43 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
 async function loadAdmin(year){
   try { adminData = await call('getAdminData', adminPw, year ?? adminData.year ?? ''); renderAdmin(); } catch (err) { alert(err.message||err); }
 }
+/* ── 신청 기간 (관리자) ── */
+const STATE_LABEL = {open:'● 신청 받는 중', closed:'■ 마감 (수동)', before:'⏰ 개시 전 (예약)', after:'■ 마감 (예약 종료)'};
+function renderSchedule(s){
+  if (!s) return;
+  const b = document.getElementById('schedBadge');
+  b.textContent = STATE_LABEL[s.state] || s.state;
+  b.className = 'badge' + (s.open ? '' : ' closed-b');
+  document.querySelectorAll('input[name=smode]').forEach(r => r.checked = r.value === s.mode);
+  document.getElementById('sStart').value = s.start || '';
+  document.getElementById('sEnd').value = s.end || '';
+  onModeChange();
+  const hint = {
+    open: '선생님들이 지금 바로 신청할 수 있습니다.',
+    closed: '선생님 화면에 "신청 기한이 아닙니다"가 표시됩니다.',
+    schedule: '예약: ' + periodText(s) + ' (한국 시간 기준으로 자동 개시·마감)'
+  }[s.mode];
+  document.getElementById('schedHint').textContent = hint || '';
+}
+function onModeChange(){
+  const m = (document.querySelector('input[name=smode]:checked')||{}).value;
+  document.getElementById('schedTimes').classList.toggle('hidden', m !== 'schedule');
+}
+document.querySelectorAll('input[name=smode]').forEach(r => r.addEventListener('change', onModeChange));
+async function saveSchedule(){
+  const m = (document.querySelector('input[name=smode]:checked')||{}).value;
+  if (!m) return alert('방식을 선택해 주세요.');
+  const st = document.getElementById('sStart').value, en = document.getElementById('sEnd').value;
+  if (m === 'schedule' && !st && !en) return alert('예약 개시 또는 마감 일시를 입력해 주세요.');
+  if (m === 'schedule' && st && en && en <= st) return alert('마감 일시는 개시 일시보다 뒤여야 합니다.');
+  const btn = document.getElementById('schedSave'); btn.disabled = true;
+  try {
+    const s = await call('setSchedule', adminPw, m, m==='schedule'?st:'', m==='schedule'?en:'');
+    adminData.schedule = s; renderSchedule(s); loadConfig();
+  } catch (err) { alert(err.message||err); }
+  finally { btn.disabled = false; }
+}
+
 async function setYear(){
   const y = +document.getElementById('yearSel').value;
   if (!confirm(y + '학년도로 신청을 받을까요?\n선생님 신청 화면의 학년도가 바뀌고, 이후 신청은 ' + y + '학년도 시트·폴더에 저장됩니다.')) return;
@@ -348,6 +481,7 @@ function renderYearBar(){
 }
 function renderAdmin(){
   renderYearBar();
+  renderSchedule(adminData.schedule);
   const rows = adminData.rows, total = rows.reduce((s,r)=>s+(+r.fee||0),0);
   document.getElementById('cnt').textContent = rows.length;
   document.getElementById('sum').textContent = document.getElementById('sum2').textContent = won(total);
